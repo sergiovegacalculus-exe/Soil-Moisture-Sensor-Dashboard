@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -7,81 +8,203 @@
   <title>Soil Monitor</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <main class="app-shell">
+
+    <!-- HEADER -->
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">✳</div>
-        <div><p class="eyebrow">GROWING SYSTEM</p><h1>Soil Monitor</h1></div>
+        <div>
+          <p class="eyebrow">GROWING SYSTEM</p>
+          <h1>Soil Monitor</h1>
+        </div>
       </div>
+
       <div class="connection-pill" id="connectionPill">
-        <span class="status-dot"></span><span id="connectionText">Not connected</span>
+        <span class="status-dot"></span>
+        <span id="connectionText">Not connected</span>
       </div>
     </header>
 
+    <!-- LIVE SENSOR -->
     <section class="hero-card">
       <div class="section-heading">
-        <div><p class="eyebrow">LIVE SENSOR</p><h2>Soil moisture</h2></div>
-        <span class="live-label"><span class="pulse"></span> LIVE</span>
+        <div>
+          <p class="eyebrow">LIVE SENSOR</p>
+          <h2>Soil moisture</h2>
+        </div>
+        <span class="live-label">
+          <span class="pulse"></span> LIVE
+        </span>
       </div>
+
       <div class="gauge-wrap">
         <div class="gauge" id="gauge">
           <div class="gauge-inner">
-            <div class="moisture-value"><span id="moistureValue">--</span><small>%</small></div>
-            <div class="moisture-caption" id="moistureStatus">Waiting for sensor</div>
+            <div class="moisture-value">
+              <span id="moistureValue">--</span>
+              <small>%</small>
+            </div>
+            <div class="moisture-caption" id="moistureStatus">
+              Waiting for sensor
+            </div>
           </div>
         </div>
       </div>
+
       <div class="reading-footer">
-        <div><span class="muted-label">RAW READING</span><strong id="rawValue">—</strong></div>
-        <div><span class="muted-label">ACTIVE MODE</span><strong id="activeModeLabel">Under Light</strong></div>
-        <div><span class="muted-label">TARGET RANGE</span><strong id="targetRange">35–65%</strong></div>
+        <div>
+          <span class="muted-label">RAW READING</span>
+          <strong id="rawValue">—</strong>
+        </div>
+
+        <div>
+          <span class="muted-label">ACTIVE MODE</span>
+          <strong id="activeModeLabel">Under Light</strong>
+        </div>
+
+        <div>
+          <span class="muted-label">TARGET RANGE</span>
+          <strong id="targetRange">35–65%</strong>
+        </div>
       </div>
-      <p class="hint" id="sensorHint">Connect to your HM-10 to see live readings.</p>
+
+      <p class="hint" id="sensorHint">
+        Connect to your HM-10 to see live readings.
+      </p>
     </section>
 
+    <!-- GROWING MODES -->
     <section class="section-block">
-      <div class="section-heading"><div><p class="eyebrow">GROWING PROFILES</p><h2>Choose a mode</h2></div></div>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">GROWING PROFILES</p>
+          <h2>Choose a mode</h2>
+        </div>
+      </div>
+
       <div class="mode-grid" role="group" aria-label="Growing mode">
-        <button class="mode-card" data-mode="GERMINATION"><span class="mode-icon">🌱</span><span class="mode-name">Germination</span><span class="mode-range">40–70%</span></button>
-        <button class="mode-card selected" data-mode="UNDER_LIGHT"><span class="mode-icon">☀️</span><span class="mode-name">Under Light</span><span class="mode-range">35–65%</span></button>
-        <button class="mode-card" data-mode="PRE_HARVEST"><span class="mode-icon">🌿</span><span class="mode-name">Pre-Harvest</span><span class="mode-range">30–55%</span></button>
+
+        <button class="mode-card" data-mode="GERMINATION">
+          <span class="mode-icon">🌱</span>
+          <span class="mode-name">Germination</span>
+          <span class="mode-range">40–70%</span>
+        </button>
+
+        <button class="mode-card selected" data-mode="UNDER_LIGHT">
+          <span class="mode-icon">☀️</span>
+          <span class="mode-name">Under Light</span>
+          <span class="mode-range">35–65%</span>
+        </button>
+
+        <button class="mode-card" data-mode="PRE_HARVEST">
+          <span class="mode-icon">🌿</span>
+          <span class="mode-name">Pre-Harvest</span>
+          <span class="mode-range">30–55%</span>
+        </button>
+
       </div>
     </section>
 
+    <!-- AUTOMATIC MOISTURE SETTINGS -->
     <section class="section-block settings-card">
-      <div class="section-heading"><div><p class="eyebrow">CUSTOMIZE</p><h2>Moisture thresholds</h2></div><span class="saved-label" id="savedLabel">Not saved</span></div>
-      <p class="description">Set the lower and upper moisture limits for the selected growing mode.</p>
-      <div class="threshold-row">
-        <div class="threshold-title"><label for="lowRange">Minimum moisture</label><strong><span id="lowValue">35</span>%</strong></div>
-        <input id="lowRange" type="range" min="0" max="64" value="35">
+
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">AUTOMATIC SETTINGS</p>
+          <h2>Moisture thresholds</h2>
+        </div>
+
+        <span class="saved-label" id="savedLabel">Automatic</span>
       </div>
+
+      <p class="description">
+        Moisture thresholds automatically adjust according to your selected growing mode.
+      </p>
+
       <div class="threshold-row">
-        <div class="threshold-title"><label for="highRange">Maximum moisture</label><strong><span id="highValue">65</span>%</strong></div>
-        <input id="highRange" type="range" min="36" max="100" value="65">
+        <div class="threshold-title">
+          <span>Minimum moisture</span>
+          <strong><span id="lowValue">35</span>%</strong>
+        </div>
       </div>
-      <div class="range-track-labels"><span>0%</span><span>100%</span></div>
-      <button class="primary-button" id="saveButton">Save settings to sensor</button>
-      <p class="hint" id="settingsHint">Changes stay on this device until saved to the sensor.</p>
+
+      <div class="threshold-row">
+        <div class="threshold-title">
+          <span>Maximum moisture</span>
+          <strong><span id="highValue">65</span>%</strong>
+        </div>
+      </div>
+
+      <p class="hint" id="modeHint">
+        Under Light is your default growing mode.
+      </p>
+
+      <p class="hint" id="settingsHint">
+        Select a growing mode to automatically update the thresholds.
+      </p>
+
     </section>
 
+    <!-- BLUETOOTH DEVICE -->
     <section class="section-block device-card">
-      <div class="section-heading"><div><p class="eyebrow">DEVICE</p><h2>Bluetooth connection</h2></div><span class="bluetooth-icon">ᛒ</span></div>
-      <p class="description">Connect to the HM-10 BLE module to receive sensor readings and send growing settings.</p>
+
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">DEVICE</p>
+          <h2>Bluetooth connection</h2>
+        </div>
+
+        <span class="bluetooth-icon">ᛒ</span>
+      </div>
+
+      <p class="description">
+        Connect to the HM-10 BLE module to receive live sensor readings and send growing modes.
+      </p>
+
       <div class="device-details">
-        <div><span>Bluetooth module</span><strong id="deviceName">HM-10</strong></div>
-        <div><span>BLE service</span><strong>FFE0</strong></div>
-        <div><span>Characteristic</span><strong>FFE1</strong></div>
+        <div>
+          <span>Bluetooth module</span>
+          <strong id="deviceName">HM-10</strong>
+        </div>
+
+        <div>
+          <span>BLE service</span>
+          <strong>FFE0</strong>
+        </div>
+
+        <div>
+          <span>Characteristic</span>
+          <strong>FFE1</strong>
+        </div>
       </div>
+
       <div class="button-row">
-        <button class="primary-button" id="connectButton">Connect to HM-10</button>
-        <button class="secondary-button" id="disconnectButton" disabled>Disconnect</button>
+        <button class="primary-button" id="connectButton">
+          Connect to HM-10
+        </button>
+
+        <button class="secondary-button" id="disconnectButton" disabled>
+          Disconnect
+        </button>
       </div>
-      <p class="hint" id="bleHint">Open this page in Bluefy using an HTTPS address, then tap Connect.</p>
+
+      <p class="hint" id="bleHint">
+        Open this page in Bluefy using an HTTPS address, then tap Connect.
+      </p>
+
     </section>
-    <footer>SOIL MONITOR <span>•</span> SENSOR DASHBOARD</footer>
+
+    <footer>
+      SOIL MONITOR <span>•</span> SENSOR DASHBOARD
+    </footer>
+
   </main>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
   <script src="script.js"></script>
 </body>
 </html>
