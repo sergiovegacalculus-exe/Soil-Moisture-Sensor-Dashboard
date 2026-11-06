@@ -4,7 +4,6 @@
 // HM-10 Bluetooth + Automatic Growing Profiles
 // ============================================
 
-// HM-10 Bluetooth UUIDs
 const SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
 const CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
 
@@ -35,7 +34,6 @@ const presets = {
   }
 };
 
-// Under Light is the default startup mode
 let activeMode = 'UNDER_LIGHT';
 
 // ============================================
@@ -73,7 +71,7 @@ const el = {
 };
 
 // ============================================
-// MODE SETTINGS DISPLAY
+// UPDATE MODE DISPLAY
 // ============================================
 
 function updateSettingsUI() {
@@ -106,7 +104,8 @@ function updateSettingsUI() {
 }
 
 // ============================================
-// MATCH WEBSITE COLORS TO ARDUINO RGB LED
+// LED COLOR MATCHING
+// Matches Arduino RGB progression
 // ============================================
 
 function getMoistureColor(moisture) {
@@ -121,7 +120,7 @@ function getMoistureColor(moisture) {
   }
 
   // NEEDS WATER: ORANGE
-  if (moisture < low) {
+  else if (moisture < low) {
     const t = (moisture - 20) / Math.max(1, low - 20);
 
     const r = 255;
@@ -131,7 +130,7 @@ function getMoistureColor(moisture) {
   }
 
   // IDEAL RANGE: YELLOW TO GREEN
-  if (moisture <= high) {
+  else if (moisture <= high) {
     const t = (moisture - low) / Math.max(1, high - low);
 
     const r = Math.round(255 * (1 - t));
@@ -141,7 +140,7 @@ function getMoistureColor(moisture) {
   }
 
   // TOO WET: GREEN TO BLUE
-  if (moisture <= 80) {
+  else if (moisture <= 80) {
     const t = (moisture - high) / Math.max(1, 80 - high);
 
     const g = Math.round(255 * (1 - t));
@@ -181,7 +180,7 @@ function moistureStatus(value) {
 }
 
 // ============================================
-// UPDATE DASHBOARD
+// UPDATE MOISTURE DISPLAY
 // ============================================
 
 function updateMoisture(value, rawValue = null) {
@@ -202,26 +201,24 @@ function updateMoisture(value, rawValue = null) {
     el.raw.textContent = rawValue;
   }
 
-  // Update gauge color to match Arduino LED
+  // Apply matching color to the gauge
   if (el.gauge) {
     el.gauge.style.setProperty('--gauge-color', color);
     el.gauge.style.setProperty('--moisture-color', color);
   }
 
-  // Update any other colored dashboard elements
+  // Apply matching color to other indicators
   document.querySelectorAll('.moisture-color').forEach(element => {
     element.style.color = color;
   });
 }
 
 // ============================================
-// BLUETOOTH COMMUNICATION
+// BLUETOOTH SEND
 // ============================================
 
 async function sendLine(line) {
-  if (!characteristic) {
-    return;
-  }
+  if (!characteristic) return;
 
   try {
     const data = encoder.encode(line + '\n');
@@ -256,11 +253,7 @@ async function setMode(mode) {
 
   updateSettingsUI();
 
-  if (el.saved) {
-    el.saved.textContent = 'Updating...';
-  }
-
-  // Update displayed status and color immediately
+  // Update gauge immediately using the new mode
   if (el.moisture) {
     const currentValue = parseFloat(el.moisture.textContent);
 
@@ -269,7 +262,10 @@ async function setMode(mode) {
     }
   }
 
-  // Send selected mode to Arduino
+  if (el.saved) {
+    el.saved.textContent = 'Updating...';
+  }
+
   if (characteristic) {
     await sendLine(`MODE;${mode}`);
     await sendLine('GET');
@@ -279,13 +275,14 @@ async function setMode(mode) {
     }
   } else {
     if (el.modeHint) {
-      el.modeHint.textContent = 'Mode selected. Connect to sync with sensor.';
+      el.modeHint.textContent =
+        'Mode selected. Connect to sync with sensor.';
     }
   }
 }
 
 // ============================================
-// PROCESS BLUETOOTH DATA
+// PARSE ARDUINO DATA
 // ============================================
 
 function parseLine(line) {
@@ -309,7 +306,7 @@ function parseLine(line) {
     }
   });
 
-  // SENSOR DATA
+  // LIVE SENSOR DATA
   if (type === 'DATA') {
     if (presets[data.MODE]) {
       activeMode = data.MODE;
@@ -342,7 +339,7 @@ function parseLine(line) {
 }
 
 // ============================================
-// RECEIVE BLUETOOTH NOTIFICATIONS
+// RECEIVE BLUETOOTH DATA
 // ============================================
 
 function handleBluetoothData(event) {
@@ -367,7 +364,7 @@ async function connectToHM10() {
   try {
     if (!navigator.bluetooth) {
       throw new Error(
-        'Bluetooth is not supported in this browser. Open the dashboard in a compatible BLE browser.'
+        'Bluetooth is not supported in this browser. Try a compatible BLE browser.'
       );
     }
 
@@ -426,7 +423,6 @@ async function connectToHM10() {
       el.disconnect.hidden = false;
     }
 
-    // Sync selected mode with Arduino
     await sendLine(`MODE;${activeMode}`);
     await sendLine('GET');
 
@@ -492,7 +488,7 @@ if (el.disconnect) {
 }
 
 // ============================================
-// INITIAL DASHBOARD STATE
+// INITIALIZE DASHBOARD
 // ============================================
 
 updateSettingsUI();
