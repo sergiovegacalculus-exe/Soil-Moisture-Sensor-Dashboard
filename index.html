@@ -1,23 +1,21 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#10251c">
-  <title>RootSense | Soil Monitor</title>
+  <title>Terra Sense | Soil Monitor</title>
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
   <main class="app-shell">
 
-    <!-- HEADER -->
     <header class="topbar">
       <div class="brand">
         <div class="brand-icon">🌱</div>
         <div>
-          <h1>RootSense</h1>
+          <h1>Terra Sense</h1>
           <p>SMART SOIL MONITOR</p>
         </div>
       </div>
@@ -28,7 +26,6 @@
       </div>
     </header>
 
-    <!-- MAIN MOISTURE DISPLAY -->
     <section class="card moisture-card">
       <div class="section-heading">
         <div>
@@ -53,12 +50,16 @@
         <span>100% · Wet</span>
       </div>
 
+      <div class="data-indicator">
+        <span class="data-dot"></span>
+        <span id="dataStatus">Waiting for sensor data</span>
+      </div>
+
       <p class="sensor-hint" id="sensorHint">
         Connect your sensor to begin monitoring.
       </p>
     </section>
 
-    <!-- GROWING MODES -->
     <section class="card mode-card">
       <div class="section-heading">
         <div>
@@ -110,7 +111,6 @@
       </p>
     </section>
 
-    <!-- AUTOMATIC THRESHOLDS -->
     <section class="card settings-card">
       <div class="section-heading">
         <div>
@@ -148,7 +148,6 @@
       </p>
     </section>
 
-    <!-- SENSOR INFORMATION -->
     <section class="card information-card">
       <p class="eyebrow">DEVICE INFORMATION</p>
       <h2>Sensor Details</h2>
@@ -174,7 +173,6 @@
       </div>
     </section>
 
-    <!-- BLUETOOTH -->
     <section class="card bluetooth-card">
       <div class="section-heading">
         <div>
@@ -199,9 +197,8 @@
       </div>
     </section>
 
-    <!-- FOOTER -->
     <footer class="footer">
-      <p>ROOTSENSE</p>
+      <p>TERRA SENSE</p>
       <span>Growing smarter, one reading at a time.</span>
     </footer>
 
