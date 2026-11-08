@@ -1,6 +1,5 @@
-
 // ============================================
-// SOIL MOISTURE DASHBOARD
+// TERRA SENSE
 // HM-10 Bluetooth + Automatic Growing Profiles
 // ============================================
 
@@ -35,6 +34,7 @@ const presets = {
 };
 
 let activeMode = 'UNDER_LIGHT';
+let currentMoisture = null;
 
 // ============================================
 // BLUETOOTH VARIABLES
@@ -43,6 +43,7 @@ let activeMode = 'UNDER_LIGHT';
 let device = null;
 let characteristic = null;
 let receiveBuffer = '';
+let lastDataAt = null;
 
 // ============================================
 // HTML ELEMENTS
@@ -51,24 +52,99 @@ let receiveBuffer = '';
 const $ = id => document.getElementById(id);
 
 const el = {
-  pill: $('connectionPill') || $('pill'),
-  connect: $('connectBtn') || $('connect'),
-  disconnect: $('disconnectBtn') || $('disconnect'),
-  hint: $('connectionHint') || $('hint'),
+  pill: $('connectionPill'),
+  connectionText: $('connectionText'),
+  connect: $('connectButton'),
+  disconnect: $('disconnectButton'),
+  hint: $('bleHint'),
   sensorHint: $('sensorHint'),
-  moisture: $('moistureValue') || $('moisture'),
-  status: $('statusValue') || $('status'),
-  raw: $('rawValue') || $('raw'),
-  activeMode: $('activeModeLabel') || $('activeMode'),
-  target: $('targetRange') || $('target'),
+  dataStatus: $('dataStatus'),
+  dataIndicator: document.querySelector('.data-indicator'),
+  moisture: $('moistureValue'),
+  status: $('moistureStatus'),
+  raw: $('rawValue'),
+  activeMode: $('activeModeLabel'),
+  target: $('targetRange'),
   gauge: $('gauge'),
   lowValue: $('lowValue'),
   highValue: $('highValue'),
-  saved: $('savedLabel') || $('saved'),
+  saved: $('savedLabel'),
   deviceName: $('deviceName'),
   modeHint: $('modeHint'),
-  settingsHint: $('settingsHint')
+  settingsHint: $('settingsHint'),
+  toast: $('toast')
 };
+
+// ============================================
+// TOAST MESSAGE
+// ============================================
+
+function showToast(message) {
+  if (!el.toast) return;
+
+  el.toast.textContent = message;
+  el.toast.classList.add('show');
+
+  clearTimeout(showToast.timer);
+
+  showToast.timer = setTimeout(() => {
+    el.toast.classList.remove('show');
+  }, 2800);
+}
+
+// ============================================
+// CONNECTION DISPLAY
+// ============================================
+
+function setConnectionState(state, message) {
+  if (el.connectionText) {
+    el.connectionText.textContent = message;
+  }
+
+  if (el.pill) {
+    el.pill.classList.remove('connected', 'connecting');
+
+    if (state === 'connected') {
+      el.pill.classList.add('connected');
+    }
+
+    if (state === 'connecting') {
+      el.pill.classList.add('connecting');
+    }
+  }
+
+  if (el.connect) {
+    el.connect.hidden = state === 'connected';
+    el.connect.disabled = state === 'connecting';
+  }
+
+  if (el.disconnect) {
+    el.disconnect.hidden = state !== 'connected';
+    el.disconnect.disabled = state !== 'connected';
+  }
+}
+
+// ============================================
+// DATA RECEPTION DISPLAY
+// ============================================
+
+function setDataState(state, message) {
+  if (el.dataStatus) {
+    el.dataStatus.textContent = message;
+  }
+
+  if (el.dataIndicator) {
+    el.dataIndicator.classList.remove('live', 'stale');
+
+    if (state === 'live') {
+      el.dataIndicator.classList.add('live');
+    }
+
+    if (state === 'stale') {
+      el.dataIndicator.classList.add('stale');
+    }
+  }
+}
 
 // ============================================
 // UPDATE MODE DISPLAY
@@ -88,7 +164,7 @@ function updateSettingsUI() {
   }
 
   if (el.target) {
-    el.target.textContent = `${preset.low}% – ${preset.high}%`;
+    el.target.textContent = `${preset.low}–${preset.high}%`;
   }
 
   if (el.activeMode) {
@@ -104,8 +180,7 @@ function updateSettingsUI() {
 }
 
 // ============================================
-// LED COLOR MATCHING
-// Matches Arduino RGB progression
+// MOISTURE COLOR
 // ============================================
 
 function getMoistureColor(moisture) {
@@ -114,23 +189,20 @@ function getMoistureColor(moisture) {
   const low = preset.low;
   const high = preset.high;
 
-  // VERY DRY: RED
+  // Very dry: red
   if (moisture < 20) {
     return 'rgb(255, 0, 0)';
   }
 
-  // NEEDS WATER: ORANGE
-  else if (moisture < low) {
+  // Dry: orange
+  if (moisture < low) {
     const t = (moisture - 20) / Math.max(1, low - 20);
 
-    const r = 255;
-    const g = Math.round(10 + 20 * t);
-
-    return `rgb(${r}, ${g}, 0)`;
+    return `rgb(255, ${Math.round(10 + 20 * t)}, 0)`;
   }
 
-  // IDEAL RANGE: YELLOW TO GREEN
-  else if (moisture <= high) {
+  // Ideal: yellow to green
+  if (moisture <= high) {
     const t = (moisture - low) / Math.max(1, high - low);
 
     const r = Math.round(255 * (1 - t));
@@ -139,8 +211,8 @@ function getMoistureColor(moisture) {
     return `rgb(${r}, ${g}, 0)`;
   }
 
-  // TOO WET: GREEN TO BLUE
-  else if (moisture <= 80) {
+  // Too wet: green to blue
+  if (moisture <= 80) {
     const t = (moisture - high) / Math.max(1, 80 - high);
 
     const g = Math.round(255 * (1 - t));
@@ -149,7 +221,7 @@ function getMoistureColor(moisture) {
     return `rgb(0, ${g}, ${b})`;
   }
 
-  // MAXIMUM MOISTURE: PURE BLUE
+  // Maximum moisture: pure blue
   return 'rgb(0, 0, 255)';
 }
 
@@ -157,24 +229,13 @@ function getMoistureColor(moisture) {
 // MOISTURE STATUS
 // ============================================
 
-function moistureStatus(value) {
+function getMoistureStatus(value) {
   const preset = presets[activeMode];
 
-  if (value < 20) {
-    return 'Very Dry';
-  }
-
-  if (value < preset.low) {
-    return 'Dry - Add Water';
-  }
-
-  if (value <= preset.high) {
-    return 'Ideal Moisture';
-  }
-
-  if (value <= 80) {
-    return 'Too Wet';
-  }
+  if (value < 20) return 'Very Dry';
+  if (value < preset.low) return 'Dry - Add Water';
+  if (value <= preset.high) return 'Ideal Moisture';
+  if (value <= 80) return 'Too Wet';
 
   return 'Very Wet';
 }
@@ -184,13 +245,19 @@ function moistureStatus(value) {
 // ============================================
 
 function updateMoisture(value, rawValue = null) {
-  value = Math.max(0, Math.min(100, Number(value)));
+  value = Number(value);
+
+  if (!Number.isFinite(value)) return;
+
+  value = Math.max(0, Math.min(100, value));
+
+  currentMoisture = value;
 
   const color = getMoistureColor(value);
-  const status = moistureStatus(value);
+  const status = getMoistureStatus(value);
 
   if (el.moisture) {
-    el.moisture.textContent = `${Math.round(value)}%`;
+    el.moisture.textContent = Math.round(value);
   }
 
   if (el.status) {
@@ -201,44 +268,52 @@ function updateMoisture(value, rawValue = null) {
     el.raw.textContent = rawValue;
   }
 
-  // Apply matching color to the gauge
   if (el.gauge) {
     el.gauge.style.setProperty('--gauge-color', color);
-    el.gauge.style.setProperty('--moisture-color', color);
+    el.gauge.style.setProperty(
+      '--gauge-angle',
+      `${value * 3.6}deg`
+    );
   }
-
-  // Apply matching color to other indicators
-  document.querySelectorAll('.moisture-color').forEach(element => {
-    element.style.color = color;
-  });
 }
 
 // ============================================
-// BLUETOOTH SEND
+// SEND COMMAND TO ARDUINO
 // ============================================
 
 async function sendLine(line) {
-  if (!characteristic) return;
+  if (!characteristic) {
+    return false;
+  }
 
   try {
     const data = encoder.encode(line + '\n');
+    const properties = characteristic.properties;
 
-    if (characteristic.properties.write) {
+    if (properties.write) {
       if (characteristic.writeValueWithResponse) {
         await characteristic.writeValueWithResponse(data);
       } else {
         await characteristic.writeValue(data);
       }
-    } else if (characteristic.properties.writeWithoutResponse) {
+    } else if (properties.writeWithoutResponse) {
       await characteristic.writeValueWithoutResponse(data);
+    } else {
+      throw new Error('Bluetooth characteristic cannot accept commands.');
     }
+
+    return true;
 
   } catch (error) {
     console.error('Bluetooth send error:', error);
 
     if (el.hint) {
-      el.hint.textContent = 'Unable to send command.';
+      el.hint.textContent = 'Could not send command to the sensor.';
     }
+
+    showToast('Unable to send Bluetooth command.');
+
+    return false;
   }
 }
 
@@ -253,30 +328,39 @@ async function setMode(mode) {
 
   updateSettingsUI();
 
-  // Update gauge immediately using the new mode
-  if (el.moisture) {
-    const currentValue = parseFloat(el.moisture.textContent);
-
-    if (!Number.isNaN(currentValue)) {
-      updateMoisture(currentValue);
-    }
+  if (currentMoisture !== null) {
+    updateMoisture(currentMoisture);
   }
 
   if (el.saved) {
-    el.saved.textContent = 'Updating...';
+    el.saved.textContent = 'Updating settings...';
   }
 
   if (characteristic) {
-    await sendLine(`MODE;${mode}`);
-    await sendLine('GET');
+    const sent = await sendLine(`MODE;${mode}`);
 
-    if (el.modeHint) {
-      el.modeHint.textContent = 'Mode sent to sensor.';
+    if (sent) {
+      await sendLine('GET');
+
+      if (el.modeHint) {
+        el.modeHint.textContent =
+          `${presets[mode].label} selected and sent to sensor.`;
+      }
+
+      if (el.settingsHint) {
+        el.settingsHint.textContent =
+          'Waiting for Arduino confirmation.';
+      }
     }
+
   } else {
     if (el.modeHint) {
       el.modeHint.textContent =
-        'Mode selected. Connect to sync with sensor.';
+        `${presets[mode].label} selected. Connect to sync with sensor.`;
+    }
+
+    if (el.saved) {
+      el.saved.textContent = 'Selected — not synced';
     }
   }
 }
@@ -306,7 +390,7 @@ function parseLine(line) {
     }
   });
 
-  // LIVE SENSOR DATA
+  // LIVE SENSOR READING
   if (type === 'DATA') {
     if (presets[data.MODE]) {
       activeMode = data.MODE;
@@ -315,17 +399,26 @@ function parseLine(line) {
 
     if (data.MOISTURE !== undefined) {
       updateMoisture(
-        Number(data.MOISTURE),
+        data.MOISTURE,
         data.RAW !== undefined ? data.RAW : null
       );
+
+      lastDataAt = Date.now();
+
+      setDataState('live', 'Receiving live sensor data');
+
+      if (el.sensorHint) {
+        el.sensorHint.textContent =
+          'Your sensor is actively transmitting readings.';
+      }
     }
 
     if (el.saved) {
-      el.saved.textContent = 'Synced';
+      el.saved.textContent = 'Synced with Arduino';
     }
   }
 
-  // MODE SETTINGS
+  // MODE SETTINGS CONFIRMATION
   else if (type === 'SETTINGS') {
     if (presets[data.MODE]) {
       activeMode = data.MODE;
@@ -333,7 +426,12 @@ function parseLine(line) {
     }
 
     if (el.saved) {
-      el.saved.textContent = 'Synced';
+      el.saved.textContent = 'Settings confirmed';
+    }
+
+    if (el.settingsHint) {
+      el.settingsHint.textContent =
+        'Arduino has confirmed the selected settings.';
     }
   }
 }
@@ -343,9 +441,11 @@ function parseLine(line) {
 // ============================================
 
 function handleBluetoothData(event) {
-  const value = decoder.decode(event.target.value);
+  const value = event.target.value;
 
-  receiveBuffer += value;
+  const decoded = decoder.decode(value);
+
+  receiveBuffer += decoded;
 
   const lines = receiveBuffer.split('\n');
 
@@ -357,6 +457,32 @@ function handleBluetoothData(event) {
 }
 
 // ============================================
+// BLUETOOTH DISCONNECTED EVENT
+// ============================================
+
+function handleDeviceDisconnected() {
+  characteristic = null;
+  receiveBuffer = '';
+  lastDataAt = null;
+
+  setConnectionState('disconnected', 'Disconnected');
+
+  setDataState('waiting', 'Waiting for sensor data');
+
+  if (el.hint) {
+    el.hint.textContent =
+      'Sensor disconnected. Connect again to resume monitoring.';
+  }
+
+  if (el.sensorHint) {
+    el.sensorHint.textContent =
+      'Waiting for sensor connection.';
+  }
+
+  showToast('Sensor disconnected.');
+}
+
+// ============================================
 // CONNECT TO HM-10
 // ============================================
 
@@ -364,27 +490,40 @@ async function connectToHM10() {
   try {
     if (!navigator.bluetooth) {
       throw new Error(
-        'Bluetooth is not supported in this browser. Try a compatible BLE browser.'
+        'Bluetooth is unavailable in this browser. Try Bluefy or another compatible BLE browser.'
       );
     }
 
+    setConnectionState('connecting', 'Connecting...');
+
     if (el.hint) {
-      el.hint.textContent = 'Searching for sensor...';
+      el.hint.textContent = 'Searching for your HM-10 module...';
     }
 
-    device = await navigator.bluetooth.requestDevice({
-      filters: [
-        { services: [SERVICE_UUID] }
-      ]
-    });
+    setDataState('waiting', 'Waiting for sensor data');
 
-    device.addEventListener(
-      'gattserverdisconnected',
-      disconnectFromHM10
-    );
+    // Allow device selection even if HM-10 does not advertise FFE0.
+    device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [SERVICE_UUID]
+    });
 
     if (el.deviceName) {
       el.deviceName.textContent = device.name || 'HM-10 Sensor';
+    }
+
+    device.removeEventListener(
+      'gattserverdisconnected',
+      handleDeviceDisconnected
+    );
+
+    device.addEventListener(
+      'gattserverdisconnected',
+      handleDeviceDisconnected
+    );
+
+    if (!device.gatt) {
+      throw new Error('This device does not support a GATT connection.');
     }
 
     const server = await device.gatt.connect();
@@ -395,79 +534,94 @@ async function connectToHM10() {
       CHARACTERISTIC_UUID
     );
 
-    await characteristic.startNotifications();
-
     characteristic.addEventListener(
       'characteristicvaluechanged',
       handleBluetoothData
     );
 
-    if (el.pill) {
-      el.pill.textContent = 'Connected';
-      el.pill.classList.add('connected');
-    }
+    await characteristic.startNotifications();
+
+    setConnectionState('connected', 'Connected');
 
     if (el.hint) {
-      el.hint.textContent = 'Connected to soil monitor.';
+      el.hint.textContent =
+        'Connected to your Terra Sense soil monitor.';
     }
 
     if (el.sensorHint) {
-      el.sensorHint.textContent = 'Live sensor data';
+      el.sensorHint.textContent =
+        'Connected. Waiting for the first sensor reading.';
     }
 
-    if (el.connect) {
-      el.connect.hidden = true;
-    }
+    setDataState('waiting', 'Connected — waiting for readings');
 
-    if (el.disconnect) {
-      el.disconnect.hidden = false;
-    }
+    showToast('Connected to soil monitor.');
 
+    // Synchronize the selected mode with Arduino.
     await sendLine(`MODE;${activeMode}`);
     await sendLine('GET');
 
   } catch (error) {
     console.error('Bluetooth connection error:', error);
 
-    if (el.hint) {
-      el.hint.textContent = error.message;
+    if (device && device.gatt && device.gatt.connected) {
+      device.gatt.disconnect();
+    }
+
+    characteristic = null;
+
+    setConnectionState('disconnected', 'Disconnected');
+
+    if (error.name === 'NotFoundError') {
+      if (el.hint) {
+        el.hint.textContent =
+          'No device selected. Press Connect Sensor to try again.';
+      }
+    } else {
+      if (el.hint) {
+        el.hint.textContent = error.message;
+      }
+
+      showToast(error.message);
     }
   }
 }
 
 // ============================================
-// DISCONNECT
+// MANUAL DISCONNECT
 // ============================================
 
 function disconnectFromHM10() {
-  characteristic = null;
-  receiveBuffer = '';
-
-  if (device && device.gatt.connected) {
+  if (device && device.gatt && device.gatt.connected) {
     device.gatt.disconnect();
   }
 
-  if (el.pill) {
-    el.pill.textContent = 'Disconnected';
-    el.pill.classList.remove('connected');
-  }
-
-  if (el.hint) {
-    el.hint.textContent = 'Connect to your soil monitor.';
-  }
-
-  if (el.sensorHint) {
-    el.sensorHint.textContent = 'Waiting for sensor connection';
-  }
-
-  if (el.connect) {
-    el.connect.hidden = false;
-  }
-
-  if (el.disconnect) {
-    el.disconnect.hidden = true;
-  }
+  handleDeviceDisconnected();
 }
+
+// ============================================
+// CHECK FOR MISSING SENSOR DATA
+// ============================================
+
+setInterval(() => {
+  if (!characteristic) return;
+
+  if (lastDataAt === null) {
+    setDataState('waiting', 'Connected — waiting for readings');
+    return;
+  }
+
+  const elapsed = Date.now() - lastDataAt;
+
+  if (elapsed > 3000) {
+    setDataState('stale', 'No recent sensor data');
+
+    if (el.sensorHint) {
+      el.sensorHint.textContent =
+        'Bluetooth is connected, but new readings have stopped.';
+    }
+  }
+}, 1000);
 
 // ============================================
 // BUTTON EVENTS
@@ -492,3 +646,7 @@ if (el.disconnect) {
 // ============================================
 
 updateSettingsUI();
+
+setConnectionState('disconnected', 'Disconnected');
+
+setDataState('waiting', 'Waiting for sensor data');
